@@ -29,6 +29,11 @@ def _pre(s: str) -> str:
     return s.replace(" ", "　").replace("\n", "")
 
 
+def input_katakana(reading: str) -> str:
+    """変換に渡るカタカナ入力（読み忠実チェックの基準）。"""
+    return _pre(hira_to_kata(reading))
+
+
 def build_prompt(reading: str, left_context: str = "", profile: str = "") -> str:
     p = ""
     if profile:

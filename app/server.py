@@ -6,7 +6,7 @@ import os
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from convert import zenz_convert
+from convert import input_katakana, zenz_convert
 from koetsu import Koetsu
 
 MASTER = os.environ.get("LNAIME_MASTER", "/app/dict/master.yaml")
@@ -46,8 +46,11 @@ def convert(req: ConvertReq):
     profile = req.profile or (
         "固有名詞: " + "、".join(engine.proper_nouns) if engine.proper_nouns else "")
     try:
-        return {"reading": req.reading,
-                "converted": zenz_convert(req.reading, req.context, profile)}
+        converted = zenz_convert(req.reading, req.context, profile)
+        out_reading = engine.reading_of(converted)
+        return {"reading": req.reading, "converted": converted,
+                "output_reading": out_reading,
+                "faithful": out_reading == input_katakana(req.reading)}
     except Exception as e:   # convert サービス未起動など
         return {"error": str(e),
                 "hint": "docker compose --profile gpu up -d convert"}

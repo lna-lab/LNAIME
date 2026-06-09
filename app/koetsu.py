@@ -132,3 +132,11 @@ class Koetsu:
             seen.add(k)
             out.append(asdict(d))
         return out
+
+    def reading_of(self, text: str) -> str:
+        """Sudachi 読み(カタカナ)を連結して返す（変換の読み忠実チェック用）。"""
+        out: list[str] = []
+        for line in text.split("\n"):
+            for m in self.tok.tokenize(line, SplitMode.C):
+                out.append(m.reading_form() or m.surface())
+        return "".join(out)
