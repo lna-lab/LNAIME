@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from convert import faithful_convert, input_katakana, zenz_convert
 from koetsu import Koetsu
+from romaji import romaji_to_hiragana
 
 MASTER = os.environ.get("LNAIME_MASTER", "/app/dict/master.yaml")
 
@@ -21,7 +22,8 @@ class CheckReq(BaseModel):
 
 
 class ConvertReq(BaseModel):
-    reading: str
+    reading: str = ""          # ひらがな読み
+    input: str = ""            # ローマ字（指定時は かな化して reading に）
     context: str = ""          # 左文脈
     right_context: str = ""    # 右文脈（v3.2）
     profile: str = ""
@@ -59,6 +61,8 @@ def _lattice_convert(req: ConvertReq) -> dict:
 
 @app.post("/convert")
 def convert(req: ConvertReq):
+    if req.input and not req.reading:      # ローマ字 → ひらがな
+        req.reading = romaji_to_hiragana(req.input)
     if req.faithful:                       # 純 lattice（忠実保証）を明示指定
         try:
             return _lattice_convert(req)

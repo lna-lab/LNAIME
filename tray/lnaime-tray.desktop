@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LNAIME
+Comment=ローカル日本語入力＋校正（常駐トレイ）
+Exec=/run/media/tonoken3/DATA2/Lna-Lab/LNAIME/tray/run.sh
+Icon=input-keyboard
+Terminal=false
+X-GNOME-Autostart-enabled=true
