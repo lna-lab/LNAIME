@@ -1,0 +1,13 @@
+# LNAIME — コンテナ駆動の「脳」（SearXNG式）。`docker compose up -d --build`
+services:
+  brain:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: lnaime-brain:dev
+    container_name: lnaime-brain
+    ports:
+      - "8077:8000"          # http://localhost:8077
+    volumes:
+      - ./dict:/app/dict:ro  # master.yaml を編集 → /dict/reload で即反映
+    restart: unless-stopped
