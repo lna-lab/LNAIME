@@ -1,0 +1,29 @@
+# LNAIME 変換サービス（zenz / llama.cpp, GPU）。
+# CUDAベースイメージ内でビルド → host(glibc2.41)×CUDA衝突を回避。
+FROM nvidia/cuda:13.1.1-devel-ubuntu24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git cmake build-essential ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN git clone --depth 1 https://github.com/ggml-org/llama.cpp
+
+# zenz の独自 pre-tokenizer を GPT2 扱いに（生成/latency 用。
+# ※正しいかな漢字変換は Zenzai の制約デコードが必要 = 別レイヤ）。
+RUN sed -i 's#tokenizer_pre == "modern-bert") {#tokenizer_pre == "modern-bert" || tokenizer_pre == "gpt2-small-japanese-char") {#' \
+        llama.cpp/src/llama-vocab.cpp \
+    && test "$(grep -c 'gpt2-small-japanese-char' llama.cpp/src/llama-vocab.cpp)" = "1"
+
+# libcuda.so.1（ドライバ）はビルド時に無い → stub を link-time に渡す（実行時は toolkit が本物を注入）
+RUN cmake -S llama.cpp -B llama.cpp/build \
+        -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120 \
+        -DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_EXE_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs -Wl,-rpath-link,/usr/local/cuda/lib64/stubs" \
+        -DCMAKE_SHARED_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs -Wl,-rpath-link,/usr/local/cuda/lib64/stubs" \
+    && cmake --build llama.cpp/build -j"$(nproc)" --target llama-server
+
+EXPOSE 8000
+CMD ["/opt/llama.cpp/build/bin/llama-server", \
+     "-m", "/models/zenz.gguf", "-ngl", "99", \
+     "--host", "0.0.0.0", "--port", "8000"]
