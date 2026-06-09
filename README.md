@@ -44,9 +44,14 @@ LNAIME は **Lna-Lab** が開発する、ニューラルかな漢字変換と日
 - 校正：**Sudachi** / **textlint** / **textlint-rule-prh** / 内閣告示・JTFスタイル
 - 文脈校正：ローカルLLM（LFM2.5系）
 
-## 状況
+## 状況（v0.1.0）
 
-PoC段階。ニューラル変換器を Blackwell GPU 上で実測し、1変換あたり約 **9–21ms**（ライブ変換の許容内）を確認しました。辞書コンパイラ（master レコード → 変換辞書＋校正ルールの同期生成）が稼働しています。
+完全ローカルで動作する **v0.1.0**。
+- **校正** `/check`：表記ゆれ・ら抜き・用字用語・全角英数
+- **変換** `/convert`：ローマ字ベタ打ち入力 → ハイブリッド（生成の品質 ＋ 読み忠実ゲート ＋ Zenzai ラティス保証）
+- **常駐トレイapp**：GNOMEトップバーに常駐し、どのアプリでも変換／校正
+
+zenz は Blackwell GPU で 1変換 約 **9–21ms**。辞書コンパイラ（master レコード → 変換辞書＋校正ルールの同期生成）が稼働。
 
 ## 使ってみる（PoC）
 
@@ -83,6 +88,23 @@ curl -s http://127.0.0.1:8077/convert \
 
 - **model-only**（GPU, 速度優先）：概ね正確、稀に読みを破る → 読み忠実ゲートで検出
 - **faithful**（CPU, Zenzai ラティス）：候補の読み連結＝入力カナのみ採用＝**読み忠実を構造的に保証**。登録固有名詞は lattice に自動注入。
+
+## 常駐トレイアプリ（最終形・v0.1.0）
+
+GNOMEのトップバーに常駐し、ローマ字 → 変換／校正をどのアプリでも。
+
+```bash
+# 1) 脳とエンジンを起動（校正 + ハイブリッド変換 + 読み忠実lattice）
+docker compose --profile gpu up -d
+
+# 2) 常駐トレイを起動（※ VS Code 内蔵端末ではなく通常の端末で。snap環境だとGTKが壊れます）
+./tray/run.sh
+```
+
+トップバーのアイコン → **変換…** にローマ字（例 `bokuhayukigadaisukidesu`）→ **変換** → 「僕はユキが大好きです」→ **コピー**。**校正…** で表記ゆれ等を検出。**読み忠実保証(lattice)** にチェックで純ラティス変換。
+
+- 自動起動：`cp tray/lnaime-tray.desktop ~/.config/autostart/`
+- 必要環境：GNOME/Wayland（AppIndicator対応）、`python3-gi` / `gir1.2-ayatanaappindicator3-0.1` / `wl-clipboard`
 
 ## ライセンスと注意
 
