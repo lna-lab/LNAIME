@@ -71,7 +71,18 @@ curl -s http://127.0.0.1:8077/convert \
 # → {"converted":"僕はユキが大好きです"}   ← 辞書に登録した「ユキ」が変換でも選ばれる
 ```
 
-> 変換は現在 model-only（greedy）で、概ね正確ですが読みを破る場合があります。読み忠実を保証する Zenzai ラティス（制約デコード）は次段で統合予定です。
+**読み忠実モード**（読みを構造的に破らない）— `"faithful": true` を付けると、azooKey Zenzai の**ラティス変換**（`convert-faithful` サービス）を使います。
+
+```bash
+docker compose up -d convert-faithful   # Swift Zenzai ラティス（CPU）
+curl -s http://127.0.0.1:8077/convert \
+  -H 'content-type: application/json' \
+  -d '{"reading":"けんとゆきはなかよし","faithful":true}'
+# → {"converted":"ケンとユキは仲吉","faithful":true,"engine":"lattice"}
+```
+
+- **model-only**（GPU, 速度優先）：概ね正確、稀に読みを破る → 読み忠実ゲートで検出
+- **faithful**（CPU, Zenzai ラティス）：候補の読み連結＝入力カナのみ採用＝**読み忠実を構造的に保証**。登録固有名詞は lattice に自動注入。
 
 ## ライセンスと注意
 

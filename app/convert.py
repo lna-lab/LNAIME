@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import urllib.request
 
 CONVERT_URL = os.environ.get("LNAIME_CONVERT_URL", "http://convert:8000/completion")
@@ -52,3 +53,29 @@ def zenz_convert(reading: str, left_context: str = "", profile: str = "",
     req = urllib.request.Request(CONVERT_URL, body, {"content-type": "application/json"})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.load(r).get("content", "")
+
+
+# ---- Tier-2: faithful lattice converter (Swift Zenzai) over TCP JSON-Lines ----
+FAITHFUL_ADDR = os.environ.get("LNAIME_FAITHFUL_ADDR", "convert-faithful:8000")
+
+
+def faithful_convert(reading: str, userdict=None, left_context: str = "",
+                     profile: str = "", n: int = 8) -> dict:
+    host, _, port = FAITHFUL_ADDR.rpartition(":")
+    req = {"reading": reading, "n": n}
+    if userdict:
+        req["userdict"] = userdict
+    if left_context:
+        req["left"] = left_context
+    if profile:
+        req["profile"] = profile
+    payload = (json.dumps(req, ensure_ascii=False) + "\n").encode("utf-8")
+    with socket.create_connection((host, int(port)), timeout=30) as s:
+        s.sendall(payload)
+        buf = b""
+        while b"\n" not in buf:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            buf += chunk
+    return json.loads(buf.split(b"\n", 1)[0].decode("utf-8"))

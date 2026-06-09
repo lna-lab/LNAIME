@@ -19,7 +19,7 @@ services:
     ports:
       - "8078:8000"         # http://127.0.0.1:8078
     volumes:
-      - ./models/zenz-v3.1-small-gguf/ggml-model-Q5_K_M.gguf:/models/zenz.gguf:ro
+      - ./models/zenz-v3.2-small-gguf/ggml-model-Q5_K_M.gguf:/models/zenz.gguf:ro
     deploy:
       resources:
         reservations:
@@ -27,4 +27,19 @@ services:
             - driver: nvidia
               device_ids: ["2"]   # 非ディスプレイの空きGPU
               capabilities: [gpu]
+    restart: unless-stopped
+
+  convert-faithful:         # Tier-2 読み忠実ラティス変換（Swift Zenzai, CPU, JSON-Lines/TCP）
+    # 事前ビルド: docker build -t lnaime-zenzai:cuda zenzai/
+    image: lnaime-zenzai:cuda
+    container_name: lnaime-convert-faithful
+    environment:
+      - ZENZ_DEVICE=CPU
+      - ZENZ_WEIGHT=/models/zenz.gguf
+      - LNAIME_DICT_VALUE=0
+      - LNAIME_TCP_PORT=8000
+    ports:
+      - "8079:8000"
+    volumes:
+      - ./models/zenz-v3.2-small-gguf/ggml-model-Q5_K_M.gguf:/models/zenz.gguf:ro
     restart: unless-stopped

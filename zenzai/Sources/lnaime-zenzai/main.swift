@@ -16,6 +16,9 @@
 // Wire: JSON-Lines over stdio. One request per line in, one response per line out.
 // =============================================================================
 import Foundation
+#if canImport(Glibc)
+import Glibc
+#endif
 import KanaKanjiConverterModuleWithDefaultDictionary
 import KanaKanjiConverterModule
 import SwiftUtils
@@ -142,21 +145,65 @@ let engine = FaithfulConverter(gguf: gguf, device: device,
 let encoder = JSONEncoder()
 let decoder = JSONDecoder()
 
-func emit(_ resp: ConvResponse) {
-    if let data = try? encoder.encode(resp) {
-        FileHandle.standardOutput.write(data)
-        FileHandle.standardOutput.write("\n".data(using: .utf8)!)
+@MainActor func responseData(forLine line: String) -> Data {
+    let resp: ConvResponse
+    if let data = line.data(using: .utf8),
+       let req = try? decoder.decode(ConvRequest.self, from: data) {
+        resp = engine.convert(req)
+    } else {
+        resp = ConvResponse(ok: false, reading: "", candidates: [], best: nil,
+                            faithful: nil, error: "bad JSON request")
+    }
+    return (try? encoder.encode(resp)) ?? Data("{\"ok\":false}".utf8)
+}
+
+// JSON-Lines over TCP (resident, single connection at a time — fine for an IME).
+@MainActor func serveTCP(port: UInt16) {
+    let listenFD = socket(AF_INET, Int32(SOCK_STREAM.rawValue), 0)
+    precondition(listenFD >= 0, "socket() failed")
+    var yes: Int32 = 1
+    setsockopt(listenFD, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+    var addr = sockaddr_in()
+    addr.sin_family = sa_family_t(AF_INET)
+    addr.sin_port = port.bigEndian
+    addr.sin_addr.s_addr = in_addr_t(0)   // INADDR_ANY
+    let bound = withUnsafePointer(to: &addr) {
+        $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            bind(listenFD, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+        }
+    }
+    precondition(bound == 0, "bind() failed")
+    precondition(listen(listenFD, 16) == 0, "listen() failed")
+    FileHandle.standardError.write("LNAIME-Zenzai TCP listening on :\(port)\n".data(using: .utf8)!)
+    while true {
+        let clientFD = accept(listenFD, nil, nil)
+        if clientFD < 0 { continue }
+        var buffer = [UInt8]()
+        var tmp = [UInt8](repeating: 0, count: 8192)
+        readLoop: while true {
+            while let nl = buffer.firstIndex(of: 0x0A) {
+                let lineBytes = Array(buffer[0..<nl])
+                buffer.removeSubrange(0...nl)
+                guard let line = String(bytes: lineBytes, encoding: .utf8), !line.isEmpty else { continue }
+                var out = responseData(forLine: line)
+                out.append(0x0A)
+                out.withUnsafeBytes { ptr in _ = write(clientFD, ptr.baseAddress, ptr.count) }
+            }
+            let n = read(clientFD, &tmp, tmp.count)
+            if n <= 0 { break readLoop }
+            buffer.append(contentsOf: tmp[0..<n])
+        }
+        close(clientFD)
     }
 }
 
 FileHandle.standardError.write("LNAIME-Zenzai ready (device=\(device), weight=\(gguf.path))\n".data(using: .utf8)!)
-while let line = readLine(strippingNewline: true) {
-    if line.isEmpty { continue }
-    guard let data = line.data(using: .utf8),
-          let req = try? decoder.decode(ConvRequest.self, from: data) else {
-        emit(ConvResponse(ok: false, reading: "", candidates: [], best: nil,
-                          faithful: nil, error: "bad JSON request"))
-        continue
+if let portStr = env["LNAIME_TCP_PORT"], let port = UInt16(portStr) {
+    serveTCP(port: port)
+} else {
+    while let line = readLine(strippingNewline: true) {
+        if line.isEmpty { continue }
+        FileHandle.standardOutput.write(responseData(forLine: line))
+        FileHandle.standardOutput.write("\n".data(using: .utf8)!)
     }
-    emit(engine.convert(req))
 }
