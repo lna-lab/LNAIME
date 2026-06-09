@@ -1,0 +1,8 @@
+# build artifacts & local downloads (not source)
+llama.cpp/
+models/
+dict/build/
+__pycache__/
+*.pyc
+.venv/
+*.log

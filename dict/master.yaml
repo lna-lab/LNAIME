@@ -1,0 +1,35 @@
+# L0 共有固有辞書 (master) — 単一の真実の源
+# 1レコードが「変換バイアス / 再変換 / 表記ゆれ校正の正規形」の3つを同時に駆動する。
+# scope: project(作品固有) / house(版元レギュレーション) / global(常時)
+# 実運用ではプロジェクト単位で切替＋ATOK/MS-IME/ことえり辞書を import（TODO）。
+meta:
+  name: sample-master
+  note: PoC。canonical=この原稿の「正」。reading は全角カタカナ(Sudachi要件)。
+
+terms:
+  - canonical: ユキ
+    reading: ユキ
+    pos: 固有名詞
+    variants: []          # 表記ゆれではなく、誤変換を禁止したい固有名詞
+    scope: project
+    comment: 本作の登場人物YUKI（雪乃）。雪 / 由貴 等への誤変換を禁止。
+
+  - canonical: サーバー
+    reading: サーバー
+    pos: 名詞
+    variants: [サーバ]
+    scope: house
+    comment: 長音あり(JTF/JIS Z 8301改定)で統一。
+
+  - canonical: ユーザー
+    reading: ユーザー
+    pos: 名詞
+    variants: [ユーザ]
+    scope: house
+
+  - canonical: お問い合わせ
+    reading: オトイアワセ
+    pos: 名詞
+    variants: [お問合せ, お問合わせ, お問い合せ]
+    scope: house
+    comment: 送り仮名フル表記で統一。
