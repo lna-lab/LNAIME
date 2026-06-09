@@ -11,3 +11,20 @@ services:
     volumes:
       - ./dict:/app/dict:ro  # master.yaml を編集 → /dict/reload で即反映
     restart: unless-stopped
+
+  convert:                  # zenz 変換（GPU）。明示起動: docker compose --profile gpu up -d convert
+    image: lnaime-convert:dev
+    container_name: lnaime-convert
+    profiles: ["gpu"]
+    ports:
+      - "8078:8000"         # http://127.0.0.1:8078
+    volumes:
+      - ./models/zenz-v3.1-small-gguf/ggml-model-Q5_K_M.gguf:/models/zenz.gguf:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["2"]   # 非ディスプレイの空きGPU
+              capabilities: [gpu]
+    restart: unless-stopped
