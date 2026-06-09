@@ -52,6 +52,7 @@ class Koetsu:
             self.canon_set.add(t["canonical"])
             for v in (t.get("variants") or []):
                 self.variant_map[v] = t["canonical"]
+        self.proper_nouns = [t["canonical"] for t in self.terms if t.get("pos") == "固有名詞"]
 
         # 決定的ルール（ら抜き・用字用語）
         self.literal_rules: list[tuple[str, str, str, str]] = []   # (find, to, category, note)

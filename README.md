@@ -61,6 +61,18 @@ curl -s http://127.0.0.1:8077/check \
 
 `dict/master.yaml` に用語を一度登録すると、変換辞書（Sudachi / azooKey）と校正ルール（prh）が `compiler/compile_dict.py` で生成され、同じ辞書が校正でも「正しい表記」として効きます（登録表記ゆれ／文書内表記ゆれ）。`/dict/reload` で辞書の再読込。
 
+かな漢字変換（ニューラル・GPU）も同じ脳から叩けます。登録した固有名詞は変換にも効きます。
+
+```bash
+docker compose --profile gpu up -d convert      # zenz を GPU で起動
+curl -s http://127.0.0.1:8077/convert \
+  -H 'content-type: application/json' \
+  -d '{"reading":"ぼくはゆきがだいすきです"}'
+# → {"converted":"僕はユキが大好きです"}   ← 辞書に登録した「ユキ」が変換でも選ばれる
+```
+
+> 変換は現在 model-only（greedy）で、概ね正確ですが読みを破る場合があります。読み忠実を保証する Zenzai ラティス（制約デコード）は次段で統合予定です。
+
 ## ライセンスと注意
 
 - 校正の規範には、著作権フリーの内閣告示・JTFスタイル・prh 公開辞書を用います。商用の用語集（各社レギュレーション）は同梱せず、利用者が自分の辞書をインポートする設計です。

@@ -14,6 +14,13 @@ terms:
     scope: project
     comment: 本作の登場人物YUKI（雪乃）。雪 / 由貴 等への誤変換を禁止。
 
+  - canonical: ケン
+    reading: ケン
+    pos: 固有名詞
+    variants: []
+    scope: project
+    comment: 本作の登場人物・ケン。犬 等への誤変換を禁止。
+
   - canonical: サーバー
     reading: サーバー
     pos: 名詞
