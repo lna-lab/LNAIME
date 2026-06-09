@@ -20,6 +20,10 @@ EE_IN = chr(0xEE00)       # inputTag
 EE_OUT = chr(0xEE01)      # outputTag
 EE_CTX = chr(0xEE02)      # left-context
 EE_PROFILE = chr(0xEE03)  # profile
+EE_TOPIC = chr(0xEE04)    # topic（話題に合った変換を優先）
+EE_STYLE = chr(0xEE05)    # style（文章スタイルに合った変換を優先）
+EE_PREF = chr(0xEE06)     # preference（書き方の好みに合った変換を優先）
+EE_RIGHT = chr(0xEE07)    # v3.2 right-context（左文脈の後・入力の前）
 
 
 def hira_to_kata(s: str) -> str:
@@ -35,19 +39,31 @@ def input_katakana(reading: str) -> str:
     return _pre(hira_to_kata(reading))
 
 
-def build_prompt(reading: str, left_context: str = "", profile: str = "") -> str:
+def build_prompt(reading: str, left_context: str = "", profile: str = "",
+                 topic: str = "", style: str = "", preference: str = "",
+                 right_context: str = "") -> str:
     p = ""
     if profile:
-        p += EE_PROFILE + _pre(profile)[-25:]      # 条件は .suffix(25)
+        p += EE_PROFILE + _pre(profile)[:30]
+    if topic:
+        p += EE_TOPIC + _pre(topic)[:30]
+    if style:
+        p += EE_STYLE + _pre(style)[:30]
+    if preference:
+        p += EE_PREF + _pre(preference)[:30]
     if left_context:
-        p += EE_CTX + _pre(left_context)[-40:]     # 文脈は .suffix(40)
+        p += EE_CTX + _pre(left_context)[-40:]     # 左文脈は .suffix(40)
+    if right_context:
+        p += EE_RIGHT + _pre(right_context)[:40]   # 右文脈は左文脈の後・入力の前
     p += EE_IN + _pre(hira_to_kata(reading)) + EE_OUT
     return p
 
 
 def zenz_convert(reading: str, left_context: str = "", profile: str = "",
-                 n_predict: int = 96) -> str:
-    prompt = build_prompt(reading, left_context, profile)
+                 topic: str = "", style: str = "", preference: str = "",
+                 right_context: str = "", n_predict: int = 96) -> str:
+    prompt = build_prompt(reading, left_context, profile, topic, style,
+                          preference, right_context)
     body = json.dumps({"prompt": prompt, "n_predict": n_predict,
                        "temperature": 0, "top_k": 1, "cache_prompt": True}).encode()
     req = urllib.request.Request(CONVERT_URL, body, {"content-type": "application/json"})
