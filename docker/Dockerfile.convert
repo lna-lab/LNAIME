@@ -15,7 +15,8 @@ RUN sed -i 's#tokenizer_pre == "modern-bert") {#tokenizer_pre == "modern-bert" |
         llama.cpp/src/llama-vocab.cpp \
     && test "$(grep -c 'gpt2-small-japanese-char' llama.cpp/src/llama-vocab.cpp)" = "1"
 
-# libcuda.so.1（ドライバ）はビルド時に無い → stub を link-time に渡す（実行時は toolkit が本物を注入）
+# libcuda.so.1（ドライバ）はビルド時に無い → stub に versioned 名を付け link-time に渡す（実行時は toolkit が本物を注入）
+RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
 RUN cmake -S llama.cpp -B llama.cpp/build \
         -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120 \
         -DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release \
