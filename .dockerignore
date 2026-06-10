@@ -5,3 +5,4 @@ models/
 dict/build/
 **/__pycache__/
 *.log
+drafts/

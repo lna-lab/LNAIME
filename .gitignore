@@ -6,3 +6,6 @@ __pycache__/
 *.pyc
 .venv/
 *.log
+
+# 原稿 — user manuscripts live on this box; never commit them
+drafts/

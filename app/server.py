@@ -4,21 +4,35 @@ from __future__ import annotations
 import difflib
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from convert import faithful_convert, input_katakana, zenz_convert
+from draft import DraftError, DraftStore
 from koetsu import Koetsu
 from romaji import romaji_to_hiragana
 
 MASTER = os.environ.get("LNAIME_MASTER", "/app/dict/master.yaml")
+# 原稿の蔵 — drafts live here, on this box (SAZANAMI), never on a roaming client's disk.
+DRAFTS = os.environ.get("LNAIME_DRAFTS", "/app/drafts")
 
-app = FastAPI(title="LNAIME brain", version="0.2")
+app = FastAPI(title="LNAIME brain", version="0.3")
 engine = Koetsu(MASTER)
+drafts = DraftStore(DRAFTS)
 
 
 class CheckReq(BaseModel):
     text: str
+
+
+class DraftSaveReq(BaseModel):
+    id: str = ""               # 空 = 新規（採番して返す）。既存idなら上書き（created_ms保持）
+    title: str = ""
+    body: str = ""
+
+
+class DraftIdReq(BaseModel):
+    id: str
 
 
 class ConvertReq(BaseModel):
@@ -46,6 +60,43 @@ def reload_dict():
 @app.post("/check")
 def check(req: CheckReq):
     return {"diagnostics": engine.check(req.text)}
+
+
+# ── 原稿 drafts ────────────────────────────────────────────────────────────────────────
+# A roaming client (ANDON-Code on a MacBook, over Tailscale) composes into a draft that
+# lives HERE and is never written to the laptop's disk — LNAIME's 原稿が外に出ない, sharpened:
+# the client holds a window, the manuscript stays home. Storage is atomic + fsync-durable
+# (see draft.py); ids are path-traversal-walled.
+
+@app.post("/draft/save")
+def draft_save(req: DraftSaveReq):
+    # id 空 → 新規採番（返り値の id を以後オートセーブで使う）。既存 → 上書き（created_ms 保持）。
+    try:
+        return drafts.save(req.body, draft_id=req.id or None, title=req.title)
+    except DraftError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.post("/draft/load")
+def draft_load(req: DraftIdReq):
+    try:
+        return drafts.load(req.id)
+    except DraftError as e:
+        # bad id vs absent: both are "no usable draft" → 404 (the client resumes nothing).
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@app.post("/draft/list")
+def draft_list():
+    return {"drafts": drafts.list()}
+
+
+@app.post("/draft/delete")
+def draft_delete(req: DraftIdReq):
+    try:
+        return {"ok": True, "deleted": drafts.delete(req.id)}
+    except DraftError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 def _lattice_convert(req: ConvertReq) -> dict:
